@@ -1,0 +1,42 @@
+# FinVault AI — Python Dependencies
+# Install with: pip install -r requirements.txt
+# Tested on Python 3.12
+
+# ── LLM & LangChain ──────────────────────────────────────────────────────────
+langchain-groq
+langchain-ollama
+langchain-chroma
+langchain-core
+langchain-text-splitters
+
+# ── Vector Store ─────────────────────────────────────────────────────────────
+chromadb
+
+# ── Retrieval ────────────────────────────────────────────────────────────────
+rank-bm25
+sentence-transformers
+
+# ── Knowledge Graph ──────────────────────────────────────────────────────────
+neo4j
+spacy
+# After install, download the spaCy model:
+# python -m spacy download en_core_web_sm
+
+# ── PDF Parsing ──────────────────────────────────────────────────────────────
+unstructured[pdf]
+
+# ── API & UI ─────────────────────────────────────────────────────────────────
+fastapi
+uvicorn
+streamlit
+pydantic
+requests
+
+# ── Evaluation ───────────────────────────────────────────────────────────────
+ragas
+datasets
+pandas
+
+# ── Utilities ────────────────────────────────────────────────────────────────
+python-dotenv
+httpx

@@ -1,0 +1,62 @@
+# ── Secrets ──────────────────────────────────────────────────────────────────
+.env
+*.env
+
+# ── Query logs (contain real user queries — keep off GitHub) ─────────────────
+query_logs.json
+logs/
+
+# ── Vector database (large binary files, rebuilt on first run) ───────────────
+vector_db/
+chroma_db/
+__pycache__/
+
+# ── Data (PDF may be large or proprietary) ───────────────────────────────────
+data/
+
+# ── Python ───────────────────────────────────────────────────────────────────
+*.pyc
+*.pyo
+*.pyd
+venv/
+.venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# ── macOS ────────────────────────────────────────────────────────────────────
+.DS_Store
+
+# ── IDE ──────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+
+
+Backup/
+
+# ── Model caches (sentence-transformers, HuggingFace) ────────────────────────
+.cache/
+huggingface/
+sentence_transformers/
+models/
+
+# ── Runtime logs ─────────────────────────────────────────────────────────────
+*.log
+
+# ── Scratch / debug / experimental scripts ───────────────────────────────────
+trial_rag.py
+check_db.py
+test_groq.py
+graph_builder.py
+
+# ── Dev notes (personal progress logs, internal docs) ────────────────────────
+files/DayByDayAchievement.txt
+files/master_context.md
+files/new_changes.md
+files/generator.md
+files/diff_btw_chabot_&_FinVault.md
+files/ToDo.md
+files/README.md
+files/README.txt
+files/requirements.txt
