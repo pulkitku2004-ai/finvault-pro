@@ -1,16 +1,3 @@
-"""
-Evaluation Script - FinVault AI (Fixed)
-
-Changes from previous version:
-  1. Judge prompt now explicitly handles unit conversions (crore vs bn vs billion)
-     and Indian financial year calendar (Q3 FY2025 = December 2024).
-     This fixes the false failures on Q2 (PAT units) and Q3 (NPA date).
-
-  2. Judge prompt adds a "BORDERLINE" verdict for close calls, so you can
-     see which answers are almost-correct vs clearly wrong.
-
-  3. Failure summary now shows the full reason, not truncated at 70 chars.
-"""
 
 import os
 import re

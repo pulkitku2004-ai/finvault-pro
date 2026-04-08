@@ -1,21 +1,4 @@
-"""
-RAGAS Evaluation Pipeline - FinVault AI (v8)
 
-Fix for Q4 CAR scoring 0.0 on all metrics:
-
-The retrieved chunk for capital adequacy looks like:
-  "Capital and liquidity metrics\n\nCapital adequacy\n\n20.0%\n\n19.8%\n\n19.3%..."
-
-Even at 800 chars this is a bare number sequence. Mistral Nemo cannot verify
-"The CAR was 20.0%" against "20.0% 19.8% 19.3%" because there is no natural
-language sentence connecting the label to the value.
-
-Fix: synthesize_chunk_sentences() detects section headers followed by number
-sequences and converts them into readable sentences like:
-  "Capital adequacy: 20.0% (Dec'24), 19.8% (previous period)."
-
-This gives the judge model a sentence it can actually match against.
-"""
 
 import os
 import logging

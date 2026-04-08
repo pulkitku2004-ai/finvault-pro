@@ -1,8 +1,3 @@
-"""
-FinVault AI - Enhanced Main Pipeline
-Orchestrates document ingestion, retrieval, and answer generation
-With improved debugging, confidence scoring, and test modes
-"""
 
 import os
 import logging

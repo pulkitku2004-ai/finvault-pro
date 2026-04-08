@@ -1,15 +1,3 @@
-"""
-Evaluation Dataset - FinVault AI (Fixed)
-
-Ground truth fixes:
-  Q2 PAT: Changed from "Rs 16,736 crore" to "Rs 167 bn" — the agent
-          naturally outputs in billions (bn) which is what the PDF chart shows.
-          16,736 crore = ~167 bn. Using crore caused unit mismatch failures.
-
-  Q3 NPA: Removed "as of December 2024" — Q3 FY2025 IS December 2024 in
-          India's financial year. The extra date caused the judge to
-          flag a mismatch that didn't actually exist.
-"""
 
 dataset = [
 

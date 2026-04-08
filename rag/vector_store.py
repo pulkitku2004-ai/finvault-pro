@@ -1,7 +1,3 @@
-"""
-Unified Vector Store Module - FinVault AI
-Uses Chroma + OllamaEmbeddings for consistent embedding/retrieval
-"""
 
 import os
 import shutil

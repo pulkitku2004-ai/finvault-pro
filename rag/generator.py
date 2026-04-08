@@ -1,34 +1,10 @@
-"""
-RAG Answer Generator - FinVault AI
-Improved version for Local LLMs (Qwen 2.5 7B)
-Focus: High Faithfulness (0.85+) and Answer Relevancy (0.80+)
-"""
 
 import logging
-#from langchain_ollama import ChatOllama
 from typing import List, Dict, Optional
 from langchain_core.documents import Document
-from dotenv import load_dotenv
-from langchain_groq import ChatGroq
-#from langchain_openai import ChatOpenAI
+from llm_config import llm
 
 logger = logging.getLogger(__name__)
-import os
-
-# CRITICAL: Temperature MUST be 0.0 for financial faithfulness
-load_dotenv()
-
-# 2. Configure the Groq Judge (Llama 3.3 70B is elite for financial RAG)
-llm = ChatGroq(
-    model="llama-3.3-70b-versatile", # Aligned Groq Model ID
-    api_key=os.getenv("GROQ_API_KEY"), # Ensure this is in your .env
-    temperature=0, # Set to 0 for financial accuracy (no "creative" numbers)
-    max_tokens=1024, # Increased slightly to allow for detailed risk explanations
-    n=1,
-    model_kwargs={
-        "top_p": 1,
-    }
-)
 def generate_answer(query: str, context_docs: List[Document]) -> str:
     """
     Improved two-stage generation for maximum faithfulness.

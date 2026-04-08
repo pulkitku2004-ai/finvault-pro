@@ -1,26 +1,7 @@
 from agent_router import route_question
 from tools import vector_search_tool, graph_search_tool, calculator_tool
-from langchain_ollama import ChatOllama
 import time
-from dotenv import load_dotenv
-from langchain_groq import ChatGroq
-import os
-#from langchain_openai import ChatOpenAI
-
-# 1. Load your .env file
-load_dotenv()
-
-# 2. Configure the Groq Judge (Llama 3.3 70B is elite for financial RAG)
-llm = ChatGroq(
-    model="llama-3.3-70b-versatile", # Aligned Groq Model ID
-    api_key=os.getenv("GROQ_API_KEY"), # Ensure this is in your .env
-    temperature=0, # Set to 0 for financial accuracy (no "creative" numbers)
-    max_tokens=1024, # Increased slightly to allow for detailed risk explanations
-    n=1,
-    model_kwargs={
-        "top_p": 1,
-    }
-)
+from llm_config import llm
 
 def agent_query(question):
 

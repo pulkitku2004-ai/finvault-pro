@@ -1,8 +1,3 @@
-"""
-Vector Document Retriever - FinVault AI
-Uses Chroma + OllamaEmbeddings for consistent retrieval
-Enhanced with configurable parameters and detailed logging
-"""
 
 import logging
 from typing import List, Optional

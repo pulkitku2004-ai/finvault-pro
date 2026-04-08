@@ -1,17 +1,16 @@
-"""
-Graph Retriever - FinVault AI
-Neo4j queries for executives and relationships
-"""
 
 import os
+import logging
 from dotenv import load_dotenv
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
 # Configuration
 NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password123")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
 
 # Initialize driver
 try:
@@ -22,11 +21,11 @@ try:
     with driver.session() as session:
         session.run("RETURN 1")
     CONNECTED = True
-    print("✅ Neo4j connected")
+    logger.info("Neo4j connected")
 except Exception as e:
     CONNECTED = False
     driver = None
-    print(f"⚠️  Neo4j offline: {str(e)[:50]}")
+    logger.warning("Neo4j offline: %s", str(e)[:50])
 
 
 def safe_run(query_str, params):
@@ -38,7 +37,8 @@ def safe_run(query_str, params):
         with driver.session() as session:
             result = session.run(query_str, params)
             return result.data()
-    except:
+    except Exception as e:
+        logger.warning("Neo4j query failed: %s", e)
         return []
 
 

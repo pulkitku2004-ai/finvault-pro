@@ -20,6 +20,7 @@ data/
 *.pyd
 venv/
 .venv/
+.venv312/
 env/
 *.egg-info/
 dist/
@@ -48,6 +49,7 @@ models/
 trial_rag.py
 check_db.py
 test_groq.py
+test_llm.py
 graph_builder.py
 
 # ── Dev notes (personal progress logs, internal docs) ────────────────────────
