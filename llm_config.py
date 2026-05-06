@@ -1,15 +1,13 @@
 
 import os
 from dotenv import load_dotenv
-from langchain_groq import ChatGroq
+from langchain_openai import ChatOpenAI
 
 load_dotenv()
 
-llm = ChatGroq(
-    model="llama-3.3-70b-versatile",
-    api_key=os.getenv("GROQ_API_KEY"),
+llm = ChatOpenAI(
+    model="gpt-4o",
+    api_key=os.getenv("OPENAI_API_KEY"),
     temperature=0,
-    max_tokens=1024,
-    n=1,
-    model_kwargs={"top_p": 1},
+    max_completion_tokens=1024,
 )

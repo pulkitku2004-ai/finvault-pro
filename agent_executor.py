@@ -3,7 +3,7 @@ from tools import vector_search_tool, graph_search_tool, calculator_tool
 import time
 from llm_config import llm
 
-def agent_query(question):
+def agent_query(question: str) -> str:
 
     start = time.time()
 

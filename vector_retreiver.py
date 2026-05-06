@@ -1,6 +1,9 @@
 
+import os
 from langchain_chroma import Chroma
-from langchain_ollama import OllamaEmbeddings
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Use your existing BM25
 try:
@@ -13,8 +16,18 @@ except ImportError:
 PERSIST_DIRECTORY = "./vector_db"
 COLLECTION_NAME = "finvault_docs"
 
-# Initialize embeddings and vector DB
-embeddings = OllamaEmbeddings(model="mxbai-embed-large")
+# Embeddings: OpenAI primary, Ollama fallback
+try:
+    from langchain_openai import OpenAIEmbeddings
+    _api_key = os.getenv("OPENAI_API_KEY")
+    if not _api_key:
+        raise ValueError("OPENAI_API_KEY not set")
+    embeddings = OpenAIEmbeddings(model="text-embedding-3-small", api_key=_api_key)
+    print("Embeddings: OpenAI text-embedding-3-small")
+except Exception as _e:
+    print(f"OpenAI embeddings unavailable ({_e}) — falling back to Ollama mxbai-embed-large")
+    from langchain_ollama import OllamaEmbeddings
+    embeddings = OllamaEmbeddings(model="mxbai-embed-large")
 
 try:
     vector_db = Chroma(

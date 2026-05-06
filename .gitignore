@@ -1,6 +1,7 @@
 # ── Secrets ──────────────────────────────────────────────────────────────────
 .env
 *.env
+.env.local
 
 # ── Query logs (contain real user queries — keep off GitHub) ─────────────────
 query_logs.json
@@ -13,6 +14,9 @@ __pycache__/
 
 # ── Data (PDF may be large or proprietary) ───────────────────────────────────
 data/
+
+# ── ASTR-O audit storage (hot/cold report files, rebuilt at runtime) ─────────
+astr_o_data/
 
 # ── Python ───────────────────────────────────────────────────────────────────
 *.pyc
@@ -33,7 +37,7 @@ build/
 .vscode/
 .idea/
 
-
+# ── Backup ───────────────────────────────────────────────────────────────────
 Backup/
 
 # ── Model caches (sentence-transformers, HuggingFace) ────────────────────────

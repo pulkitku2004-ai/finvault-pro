@@ -1,8 +1,10 @@
 
 import logging
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from langchain_core.documents import Document
 from llm_config import llm
+
+_llm_logprobs = llm.bind(logprobs=True)
 
 logger = logging.getLogger(__name__)
 def generate_answer(query: str, context_docs: List[Document]) -> str:
@@ -111,3 +113,71 @@ ANSWER: [Direct answer with citations]
             "reasoning": "",
             "confidence": "low",
         }
+
+
+def generate_answer_for_audit(
+    query: str, context_docs: List[Document]
+) -> Tuple[str, List[Dict]]:
+    """
+    Two-stage generation that also returns token logprobs from the final
+    synthesis step for ASTR-O token confidence analysis.
+
+    Returns:
+        (answer_text, logprobs)  where logprobs = [{"token": str, "logprob": float}]
+    """
+    if not context_docs:
+        return "Not found in provided documents.", []
+
+    formatted_docs = []
+    for i, doc in enumerate(context_docs, 1):
+        content = doc.page_content if hasattr(doc, "page_content") else str(doc)
+        formatted_docs.append(f"[Doc {i}]\n{content}")
+    context = "\n\n---\n\n".join(formatted_docs)
+
+    # Stage 1 — fact extraction (no logprobs needed here)
+    extraction_prompt = f"""You are a Fact Extractor.
+Read the DOCUMENTS and list ONLY specific facts, numbers, and dates related to: "{query}"
+
+DOCUMENTS:
+{context}
+
+EXTRACTED FACTS (Bullet points only):"""
+
+    try:
+        facts_res = llm.invoke(extraction_prompt)
+        facts = facts_res.content.strip()
+
+        # Stage 2 — grounded synthesis WITH logprobs
+        final_prompt = f"""You are FinVault AI. Answer the USER QUESTION using ONLY the provided FACTS.
+
+FACTS:
+{facts}
+
+USER QUESTION:
+{query}
+
+STRICT RULES:
+1. Every claim MUST cite the fact source (e.g. [Doc 1])
+2. If facts don't answer the question, say "Information not available"
+3. Do NOT use external knowledge or internal memory
+4. Keep the answer concise and strictly factual
+
+ANSWER:"""
+
+        response = _llm_logprobs.invoke(final_prompt)
+        answer = response.content.strip()
+
+        # Extract logprobs from response metadata
+        raw = response.response_metadata.get("logprobs", {}) or {}
+        content_logprobs = raw.get("content", []) or []
+        logprobs = [
+            {"token": entry["token"], "logprob": entry["logprob"]}
+            for entry in content_logprobs
+            if "token" in entry and "logprob" in entry
+        ]
+
+        return answer, logprobs
+
+    except Exception as e:
+        logger.error(f"❌ Audit generation failed: {e}")
+        return "Error generating factual answer.", []

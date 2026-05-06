@@ -5,7 +5,7 @@ Enhanced with better context and higher top_k
 """
 
 import logging
-from rag.retriever import retrieve_docs
+from rag.retriever import retrieve_docs, retrieve_with_scores, retrieve_hybrid_with_scores, retrieve_hybrid
 from rag.query_rewriter import rewrite_query, is_risk_query, is_financial_query
 from graph_retriever import validate_connection
 from tools import graph_search_tool
@@ -142,11 +142,60 @@ def route_query(query: str, top_k: int = 10) -> list:
         else:
             optimal_k = top_k
         
-        results = retrieve_docs(search_query, top_k=optimal_k)
-        
+        results = retrieve_hybrid(search_query, top_k=optimal_k)
+
         if not results:
             logger.warning("⚠️  No documents found for this query")
         else:
             logger.info(f"✅ Found {len(results)} relevant documents")
-        
+
         return results
+
+
+def route_query_with_scores(query: str, top_k: int = 10) -> tuple:
+    """
+    Same routing logic as route_query() but also returns pre-rerank similarity
+    scores for each chunk — needed by the ASTR-O adapter to build all_ranked_chunks.
+
+    Returns:
+        (docs, scored_pairs)
+        docs         — list of docs/strings (same as route_query)
+        scored_pairs — list of (doc, dense_score) tuples; score in [0, 1]
+                       graph results get synthetic score 1.0
+    """
+    search_query = rewrite_query(query)
+    selected_tool = route_question(search_query)
+
+    if "graph_search" in selected_tool and validate_connection():
+        graph_context = graph_search_tool(search_query)
+        # Hybrid retrieval — RRF scores already normalised to (0, 1]
+        scored_vector = retrieve_hybrid_with_scores(search_query, top_k=top_k)
+
+        vector_texts = [
+            d.page_content if hasattr(d, "page_content") else str(d)
+            for d, _ in scored_vector
+        ]
+
+        if graph_context != "No graph information available for this query.":
+            combined_docs = [graph_context] + vector_texts
+            combined_scored = [(graph_context, 1.0)] + scored_vector
+        else:
+            combined_docs = vector_texts
+            combined_scored = scored_vector
+
+        return combined_docs, combined_scored
+
+    else:
+        # Hybrid vector search path
+        if is_risk_query(query):
+            optimal_k = max(top_k, 15)
+        else:
+            optimal_k = top_k
+
+        # RRF scores already in (0, 1] — no further normalisation needed
+        scored_pairs = retrieve_hybrid_with_scores(search_query, top_k=optimal_k)
+        docs = [
+            d.page_content if hasattr(d, "page_content") else str(d)
+            for d, _ in scored_pairs
+        ]
+        return docs, scored_pairs

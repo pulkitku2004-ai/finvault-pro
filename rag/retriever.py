@@ -84,6 +84,58 @@ def retrieve_with_scores(query: str, top_k: Optional[int] = None) -> List[tuple]
         return []
 
 
+def retrieve_hybrid_with_scores(
+    query: str, top_k: Optional[int] = None
+) -> List[tuple[Document, float]]:
+    """
+    Hybrid BM25 + dense retrieval fused with Reciprocal Rank Fusion (RRF).
+
+    Pulls top_k*2 candidates from each retriever, fuses with RRF (k=60),
+    returns top_k (Document, rrf_score) pairs sorted best-first.
+    RRF scores are already in (0, 1] — no further normalisation needed.
+    Falls back to dense-only if BM25 corpus is unavailable.
+    """
+    from rag.bm25_retriever import bm25_retrieve
+
+    if top_k is None:
+        top_k = DEFAULT_TOP_K
+
+    pool = top_k * 2
+    K = 60  # standard RRF constant
+
+    dense_results: List[tuple[Document, float]] = retrieve_with_scores(query, top_k=pool)
+    bm25_results: List[Document] = bm25_retrieve(query, top_k=pool)
+
+    rrf_scores: dict[str, float] = {}
+    doc_store: dict[str, Document] = {}
+
+    def _fp(text: str) -> str:
+        return text[:150]
+
+    for rank, (doc, _) in enumerate(dense_results, 1):
+        fp = _fp(doc.page_content)
+        rrf_scores[fp] = rrf_scores.get(fp, 0.0) + 1.0 / (K + rank)
+        doc_store[fp] = doc
+
+    for rank, doc in enumerate(bm25_results, 1):
+        fp = _fp(doc.page_content)
+        rrf_scores[fp] = rrf_scores.get(fp, 0.0) + 1.0 / (K + rank)
+        if fp not in doc_store:
+            doc_store[fp] = doc
+
+    ranked = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)[:top_k]
+    logger.info(
+        "Hybrid retrieval: %d dense + %d BM25 → %d after RRF",
+        len(dense_results), len(bm25_results), len(ranked),
+    )
+    return [(doc_store[fp], score) for fp, score in ranked]
+
+
+def retrieve_hybrid(query: str, top_k: Optional[int] = None) -> List[Document]:
+    """Convenience wrapper — returns only Documents from hybrid retrieval."""
+    return [doc for doc, _ in retrieve_hybrid_with_scores(query, top_k=top_k)]
+
+
 def filter_by_content_type(docs: List[Document], content_type: str = "text") -> List[Document]:
     """
     Filter retrieved documents by content type.

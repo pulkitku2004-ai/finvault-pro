@@ -1,0 +1,15 @@
+{
+  "created_at": "2026-05-06T08:41:18Z",
+  "documents": [
+    {
+      "document_id": "doc_001",
+      "document_type": "earnings_presentation",
+      "filename": "hdfc_q3.pdf",
+      "hash": "sha256:f6269e420b7619d3e2f3a8122ddc3d0c74a3e9d243296d7ef054954e3f5051b3",
+      "ingested_at": "2026-05-06T08:41:18Z",
+      "source_tier": "CRITICAL"
+    }
+  ],
+  "mission_id": "FINVAULT_HDFC_Q3_FY2025",
+  "signature": "c0c8d8c87add587ad421cdcff7ef8b5367f5cf1f15e9c117a59862a11663b8e4"
+}

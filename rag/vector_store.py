@@ -6,7 +6,6 @@ import logging
 from typing import List, Optional
 from langchain_core.documents import Document
 from langchain_chroma import Chroma
-from langchain_ollama import OllamaEmbeddings
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -15,7 +14,6 @@ logger = logging.getLogger(__name__)
 # Constants
 PERSIST_DIRECTORY = "./vector_db"
 COLLECTION_NAME = "finvault_docs"
-EMBEDDING_MODEL = "mxbai-embed-large"
 
 # Global instance (persist during session)
 _vector_db_instance = None
@@ -23,10 +21,24 @@ _embeddings_instance = None
 
 
 def get_embeddings():
-    """Get or create embeddings instance."""
+    """OpenAI text-embedding-3-small (primary), Ollama mxbai-embed-large (fallback)."""
     global _embeddings_instance
     if _embeddings_instance is None:
-        _embeddings_instance = OllamaEmbeddings(model=EMBEDDING_MODEL)
+        try:
+            from langchain_openai import OpenAIEmbeddings
+            api_key = os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                raise ValueError("OPENAI_API_KEY not set")
+            _embeddings_instance = OpenAIEmbeddings(
+                model="text-embedding-3-small",
+                api_key=api_key,
+            )
+            logger.info("Embeddings: OpenAI text-embedding-3-small")
+        except Exception as e:
+            logger.warning("OpenAI embeddings unavailable (%s) — falling back to Ollama mxbai-embed-large", e)
+            from langchain_ollama import OllamaEmbeddings
+            _embeddings_instance = OllamaEmbeddings(model="mxbai-embed-large")
+            logger.info("Embeddings: Ollama mxbai-embed-large (fallback)")
     return _embeddings_instance
 
 
@@ -35,15 +47,30 @@ def ensure_clean_db_directory():
     Remove vector DB directory completely.
     Critical after model changes or persistent errors.
     """
+    global _vector_db_instance, _embeddings_instance
+    _vector_db_instance = None
+    _embeddings_instance = None
+
+    # Reset chromadb's internal client state before deleting disk data
     if os.path.exists(PERSIST_DIRECTORY):
+        try:
+            import chromadb
+            from chromadb.config import Settings
+            _tmp = chromadb.PersistentClient(
+                path=PERSIST_DIRECTORY,
+                settings=Settings(allow_reset=True),
+            )
+            _tmp.reset()
+        except Exception:
+            pass
+
         logger.info(f"🧹 Removing {PERSIST_DIRECTORY}...")
         try:
             shutil.rmtree(PERSIST_DIRECTORY, ignore_errors=True)
-            time.sleep(1)  # Let filesystem settle
+            time.sleep(1)
         except Exception as e:
             logger.warning(f"⚠️  Could not remove directory: {e}")
-    
-    # Ensure clean directory
+
     os.makedirs(PERSIST_DIRECTORY, exist_ok=True)
     logger.info(f"✅ Created clean {PERSIST_DIRECTORY}")
 
@@ -58,19 +85,34 @@ def embed_and_store(chunks: List[Document]) -> bool:
     Returns:
         bool: True if successful, False otherwise
     """
-    global _vector_db_instance
-    
+    global _vector_db_instance, _embeddings_instance
+
     if not chunks:
         logger.error("❌ No chunks provided to embed_and_store()")
         return False
-    
+
     try:
-        # Clean start
-        ensure_clean_db_directory()
-        
+        # Drop Python references so GC can close old SQLite handles
+        _vector_db_instance = None
+        _embeddings_instance = None
+        import gc; gc.collect()
+
+        os.makedirs(PERSIST_DIRECTORY, exist_ok=True)
+
+        # Delete stale collection via ChromaDB API (keeps the SQLite file alive
+        # — avoids SQLITE_READONLY_DBMOVED when a prior client still has it open)
+        import chromadb
+        _tmp_client = chromadb.PersistentClient(path=PERSIST_DIRECTORY)
+        try:
+            _tmp_client.delete_collection(COLLECTION_NAME)
+            logger.info("🗑️  Deleted stale collection")
+        except Exception:
+            pass
+        del _tmp_client; gc.collect()
+
         embeddings = get_embeddings()
-        logger.info(f"Embedding {len(chunks)} chunks using {EMBEDDING_MODEL}...")
-        
+        logger.info(f"Embedding {len(chunks)} chunks...")
+
         # Create Chroma DB with persistent storage
         _vector_db_instance = Chroma.from_documents(
             documents=chunks,
@@ -82,11 +124,18 @@ def embed_and_store(chunks: List[Document]) -> bool:
         # Verify storage
         count = _vector_db_instance._collection.count()
         logger.info(f"✅ Embeddings stored successfully. Total vectors: {count}")
-        
+
         if count == 0:
             logger.error("❌ No vectors were stored!")
             return False
-        
+
+        # Persist BM25 corpus alongside the vector DB
+        try:
+            from rag.bm25_retriever import build_bm25_index
+            build_bm25_index(chunks)
+        except Exception as e:
+            logger.warning("BM25 index build failed (non-fatal): %s", e)
+
         return True
         
     except Exception as e:

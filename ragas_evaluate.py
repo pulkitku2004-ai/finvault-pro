@@ -26,7 +26,7 @@ from ragas.metrics import Faithfulness, ContextPrecision, ContextRecall
 from ragas.llms import LangchainLLMWrapper
 from ragas.embeddings import LangchainEmbeddingsWrapper
 from langchain_ollama import ChatOllama, OllamaEmbeddings
-from langchain_groq import ChatGroq
+from langchain_openai import ChatOpenAI
 from agent_router import route_question
 from tools import vector_search_tool, graph_search_tool
 from eval_dataset import dataset as EVAL_DATASET
@@ -58,18 +58,6 @@ def check_ollama_model(model_name: str) -> bool:
     except Exception:
         logger.error("❌ Ollama not running. Start with: ollama serve")
     return False
-
-
-class GroqSafeChat(ChatGroq):
-    def _enforce_n1(self, kwargs):
-        kwargs["n"] = 1
-        return kwargs
-
-    def _generate(self, messages, stop=None, run_manager=None, **kwargs):
-        return super()._generate(messages, stop=stop, run_manager=run_manager, **self._enforce_n1(kwargs))
-
-    async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
-        return await super()._agenerate(messages, stop=stop, run_manager=run_manager, **self._enforce_n1(kwargs))
 
 
 def parse_retry_seconds(error_str: str) -> int:
@@ -251,33 +239,42 @@ Rules:
 def run_evaluation():
     load_dotenv()
 
-    AGENT_MODEL = "llama-3.3-70b-versatile"
-    API_KEY = os.getenv("GROQ_API_KEY")
+    AGENT_MODEL = "gpt-4o"
+    API_KEY = os.getenv("OPENAI_API_KEY")
 
     if not API_KEY:
-        logger.error("GROQ_API_KEY not found in .env")
+        logger.error("OPENAI_API_KEY not found in .env")
         return None
 
-    if not check_ollama_model(EVAL_MODEL_OLLAMA):
-        return None
+    logger.info("Agent model : OpenAI %s", AGENT_MODEL)
+    logger.info("Eval model  : OpenAI gpt-4o-mini (judge)")
 
-    logger.info("Agent model : Groq %s", AGENT_MODEL)
-    logger.info("Eval model  : Ollama %s (local)", EVAL_MODEL_OLLAMA)
-
-    agent_llm = ChatGroq(
+    agent_llm = ChatOpenAI(
         model=AGENT_MODEL, api_key=API_KEY,
-        temperature=0, max_tokens=1024, n=1,
-        model_kwargs={"top_p": 1},
+        temperature=0, max_tokens=1024,
     )
 
-    eval_llm_base = ChatOllama(
-        model=EVAL_MODEL_OLLAMA, base_url=OLLAMA_BASE_URL,
-        temperature=0, num_predict=2048,
+    eval_llm_base = ChatOpenAI(
+        model="gpt-4o-mini", api_key=API_KEY,
+        temperature=0, max_tokens=2048,
     )
-    evaluator_llm        = LangchainLLMWrapper(eval_llm_base)
-    evaluator_embeddings = LangchainEmbeddingsWrapper(
-        OllamaEmbeddings(model="mxbai-embed-large", base_url=OLLAMA_BASE_URL)
-    )
+    evaluator_llm = LangchainLLMWrapper(eval_llm_base)
+
+    # Embeddings: OpenAI primary, Ollama fallback
+    try:
+        from langchain_openai import OpenAIEmbeddings
+        _embed = OpenAIEmbeddings(model="text-embedding-3-small", api_key=API_KEY)
+        evaluator_embeddings = LangchainEmbeddingsWrapper(_embed)
+        logger.info("Eval embeddings: OpenAI text-embedding-3-small")
+    except Exception as _e:
+        logger.warning("OpenAI embeddings unavailable (%s) — falling back to Ollama", _e)
+        if check_ollama_model(EVAL_MODEL_OLLAMA):
+            evaluator_embeddings = LangchainEmbeddingsWrapper(
+                OllamaEmbeddings(model="mxbai-embed-large", base_url=OLLAMA_BASE_URL)
+            )
+        else:
+            logger.error("No embeddings available for RAGAS. Aborting.")
+            return None
 
     metrics = [
         Faithfulness(llm=evaluator_llm),
@@ -287,7 +284,7 @@ def run_evaluation():
 
     # ── Phase 1: Agent answers + synthesized contexts ─────────────────────────
     questions, answers, contexts, ground_truths = [], [], [], []
-    logger.info("Phase 1: Collecting %d agent answers (Groq 70b)...", len(EVAL_DATASET))
+    logger.info("Phase 1: Collecting %d agent answers (OpenAI gpt-4o)...", len(EVAL_DATASET))
 
     for i, item in enumerate(EVAL_DATASET, 1):
         try:
@@ -380,8 +377,8 @@ if __name__ == "__main__":
 
         print("\n" + "=" * 60)
         print("FINVAULT AI — RAGAS EVALUATION RESULTS")
-        print(f"Agent : Groq llama-3.3-70b-versatile")
-        print(f"Eval  : Ollama {EVAL_MODEL_OLLAMA} (local)")
+        print(f"Agent : OpenAI gpt-4o")
+        print(f"Eval  : OpenAI gpt-4o-mini (judge + embeddings)")
         print("=" * 60)
 
         print("\nPer-question scores:")

@@ -3,7 +3,7 @@ import os
 import re
 import time
 from dotenv import load_dotenv
-from langchain_groq import ChatGroq
+from langchain_openai import ChatOpenAI
 from eval_dataset import dataset
 from agent_executor import agent_query
 
@@ -11,15 +11,14 @@ load_dotenv()
 
 
 def get_judge_llm():
-    api_key = os.getenv("GROQ_API_KEY")
+    api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        raise ValueError("GROQ_API_KEY not found in .env")
-    return ChatGroq(
-        model="llama-3.3-70b-versatile",
+        raise ValueError("OPENAI_API_KEY not found in .env")
+    return ChatOpenAI(
+        model="gpt-4o-mini",
         api_key=api_key,
         temperature=0,
-        max_tokens=300,
-        n=1,
+        max_completion_tokens=300,
     )
 
 
@@ -138,7 +137,7 @@ def run_eval(method: str = "llm_judge"):
     if method == "llm_judge":
         try:
             judge_llm = get_judge_llm()
-            print("Judge LLM: Groq llama-3.3-70b-versatile\n")
+            print("Judge LLM: OpenAI gpt-4o-mini\n")
         except Exception as e:
             print(f"Could not load judge LLM: {e}. Falling back to keyword.\n")
             method = "keyword"
